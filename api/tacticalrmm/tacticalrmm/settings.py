@@ -34,6 +34,8 @@ APP_VER = "0.0.203"
 
 # https://github.com/amidaware/rmmagent
 LATEST_AGENT_VER = "2.11.0"
+AGENT_GH_REPO = "fcmatch121/rmmagent"
+WEB_GH_REPO = "fcmatch121/tacticalrmm-web"
 
 MESH_VER = "1.2.5"
 
