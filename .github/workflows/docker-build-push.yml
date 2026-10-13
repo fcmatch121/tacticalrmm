@@ -3,76 +3,55 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   docker:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - tactical
+          - tactical-meshcentral
+          - tactical-nats
+          - tactical-frontend
+          - tactical-nginx
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
 
-      - name: Get Github Tag
+      - name: Get image tags
         id: prep
         run: |
-          echo ::set-output name=version::${GITHUB_REF#refs/tags/v}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="$(grep '^TRMM_VERSION' api/tacticalrmm/tacticalrmm/settings.py | cut -d'"' -f 2)"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "repo=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Tactical Image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          push: true
-          pull: true
-          file: ./docker/containers/tactical/dockerfile
-          platforms: linux/amd64
-          tags: tacticalrmm/tactical:${{ steps.prep.outputs.version }},tacticalrmm/tactical:latest
-
-      - name: Build and Push Tactical MeshCentral Image
-        uses: docker/build-push-action@v2
+      - name: Build and Push ${{ matrix.image }}
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           pull: true
-          file: ./docker/containers/tactical-meshcentral/dockerfile
+          file: ./docker/containers/${{ matrix.image }}/dockerfile
           platforms: linux/amd64
-          tags: tacticalrmm/tactical-meshcentral:${{ steps.prep.outputs.version }},tacticalrmm/tactical-meshcentral:latest
-
-      - name: Build and Push Tactical NATS Image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          push: true
-          pull: true
-          file: ./docker/containers/tactical-nats/dockerfile
-          platforms: linux/amd64
-          tags: tacticalrmm/tactical-nats:${{ steps.prep.outputs.version }},tacticalrmm/tactical-nats:latest
-
-      - name: Build and Push Tactical Frontend Image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          push: true
-          pull: true
-          file: ./docker/containers/tactical-frontend/dockerfile
-          platforms: linux/amd64
-          tags: tacticalrmm/tactical-frontend:${{ steps.prep.outputs.version }},tacticalrmm/tactical-frontend:latest
-
-      - name: Build and Push Tactical Nginx Image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          push: true
-          pull: true
-          file: ./docker/containers/tactical-nginx/dockerfile
-          platforms: linux/amd64
-          tags: tacticalrmm/tactical-nginx:${{ steps.prep.outputs.version }},tacticalrmm/tactical-nginx:latest
+          tags: ${{ steps.prep.outputs.repo }}/${{ matrix.image }}:${{ steps.prep.outputs.version }},${{ steps.prep.outputs.repo }}/${{ matrix.image }}:latest

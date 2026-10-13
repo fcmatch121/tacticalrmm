@@ -16,8 +16,9 @@ SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
 COPY api/tacticalrmm/tacticalrmm/settings.py /tmp/settings.py
 
 RUN WEB_VERSION=$(grep -o 'WEB_VERSION.*' /tmp/settings.py | cut -d'"' -f 2) \
+  && WEB_GH_REPO=$(grep -o 'WEB_GH_REPO.*' /tmp/settings.py | cut -d'"' -f 2) \
   && webtar="trmm-web-v${WEB_VERSION}.tar.gz" \
-  && wget -q "https://github.com/amidaware/tacticalrmm-web/releases/download/v${WEB_VERSION}/${webtar}" -O /tmp/${webtar} \
+  && wget -q "https://github.com/${WEB_GH_REPO}/releases/download/v${WEB_VERSION}/${webtar}" -O /tmp/${webtar} \
   && tar -xzf /tmp/${webtar} -C ${PUBLIC_DIR} \
   && rm -f /tmp/${webtar}
 
